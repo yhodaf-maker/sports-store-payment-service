@@ -1,0 +1,19 @@
+name: Branch Name
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate branch name
+        env:
+          BRANCH_NAME: ${{ github.head_ref }}
+        run: |
+          if [[ ! "$BRANCH_NAME" =~ ^(feature|bugfix|hotfix)/[a-z0-9]+(-[a-z0-9]+)*$ ]]; then
+            echo "Invalid branch name: $BRANCH_NAME"
+            echo "Use feature/, bugfix/, or hotfix/ followed by a lowercase kebab-case slug."
+            exit 1
+          fi
