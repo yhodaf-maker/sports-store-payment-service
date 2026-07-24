@@ -23,3 +23,15 @@
 #   - Run with uvicorn: `uvicorn main:app --host 0.0.0.0 --port 8000`
 #   - Binding to 0.0.0.0 (not 127.0.0.1) is required — otherwise the
 #     service is unreachable from other containers on the network.
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+EXPOSE 8005
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8005"]
