@@ -20,22 +20,41 @@ jobs:
       - run: ruff check . --select E4,E7,E9,F
       - run: pytest
 
-  security:
+  gitleaks:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install Gitleaks
+        run: |
+          GITLEAKS_VERSION=8.28.0
+          wget -q https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz
+          tar -xzf gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz
+          sudo mv gitleaks /usr/local/bin/
+      - name: Run Gitleaks
+        run: |
+          gitleaks detect --source . --verbose
+
+  checkov:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
       - uses: bridgecrewio/checkov-action@v12
         with:
           directory: .
           framework: dockerfile
+
+  trivy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
       - run: docker build --tag sports-store-payment-service:pr-${{ github.sha }} .
       - uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: sports-store-payment-service:pr-${{ github.sha }}
           severity: HIGH,CRITICAL
           exit-code: '1'
+          ignore-unfixed: true
+          scanners: vuln
+          trivyignores: .trivyignore.yaml

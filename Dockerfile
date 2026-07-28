@@ -1,28 +1,26 @@
 # ---- Build stage --------------------------------------------------------
-FROM python:3.11.9-alpine AS build
+FROM python:3.11-slim-bookworm AS build
 
 WORKDIR /app
-
-# Build tooling for any dependency without a prebuilt musllinux wheel;
-# discarded along with this stage, so it never reaches the runtime image.
-RUN apk add --no-cache --virtual .build-deps build-base libffi-dev
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+RUN python -m pip install --no-cache-dir --target=/opt/python -r requirements.txt
 
 # ---- Runtime stage --------------------------------------------------------
-FROM python:3.11.9-alpine
-
-RUN addgroup -S -g 10001 payment \
-    && adduser -S -D -H -u 10001 -G payment payment
+FROM gcr.io/distroless/python3-debian12:nonroot
 
 WORKDIR /app
 
-COPY --from=build /install /usr/local
-COPY --chown=payment:payment . .
+ENV PYTHONPATH=/opt/python
 
-USER 10001
+COPY --from=build --chown=nonroot:nonroot /opt/python /opt/python
+COPY --chown=nonroot:nonroot . .
+
+USER nonroot
 
 EXPOSE 8005
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8005"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD ["/usr/bin/python3.11", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8005/health', timeout=4).read()"]
+
+CMD ["-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8005"]
