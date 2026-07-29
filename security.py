@@ -1,4 +1,5 @@
 from os import environ
+from typing import Annotated
 
 import jwt
 from fastapi import Depends, HTTPException
@@ -20,14 +21,16 @@ def decode_token(token: str) -> dict:
 
 
 def get_current_user(
-    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    credentials: Annotated[
+        HTTPAuthorizationCredentials | None, Depends(bearer_scheme)
+    ],
 ) -> dict:
     if credentials is None:
         raise HTTPException(status_code=401, detail="Not authenticated")
     return decode_token(credentials.credentials)
 
 
-def require_admin(user: dict = Depends(get_current_user)) -> dict:
+def require_admin(user: Annotated[dict, Depends(get_current_user)]) -> dict:
     if user.get("role") != "admin":
         raise HTTPException(status_code=403, detail="Admin access required")
     return user

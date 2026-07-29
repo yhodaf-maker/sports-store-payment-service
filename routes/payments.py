@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from os import environ
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 from pymongo.errors import DuplicateKeyError
@@ -30,7 +31,10 @@ def to_response(doc: dict) -> ChargeResponse:
 
 
 @router.post("/charge", response_model=ChargeResponse)
-async def charge(payload: ChargeRequest, user: dict = Depends(get_current_user)):
+async def charge(
+    payload: ChargeRequest,
+    user: Annotated[dict, Depends(get_current_user)],
+):
     existing = await payments_collection.find_one(
         {"idempotency_key": payload.idempotency_key}
     )

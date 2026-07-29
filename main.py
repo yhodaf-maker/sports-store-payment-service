@@ -2,6 +2,7 @@ import logging
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from pymongo.errors import PyMongoError
 
 from database import payments_collection
 from routes import payments
@@ -24,7 +25,7 @@ app.include_router(payments.router, prefix="/api")
 async def create_indexes():
     try:
         await payments_collection.create_index("idempotency_key", unique=True)
-    except Exception as exc:  # Mongo may be unavailable (e.g. unit tests)
+    except PyMongoError as exc:  # Mongo may be unavailable (e.g. unit tests)
         logger.warning("Index creation skipped: %s", exc)
 
 
