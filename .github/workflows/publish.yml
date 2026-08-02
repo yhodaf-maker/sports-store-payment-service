@@ -9,6 +9,10 @@ permissions:
   id-token: write
   contents: read
 
+concurrency:
+  group: production-image-writeback
+  cancel-in-progress: false
+
 jobs:
   build-and-push:
     name: Build and Push to ECR
@@ -49,3 +53,58 @@ jobs:
         run: |
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+      - name: Generate GitOps App Token
+        id: gitops-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.GITOPS_APP_ID }}
+          private-key: ${{ secrets.GITOPS_APP_PRIVATE_KEY }}
+          owner: Deploy-On-Friday2-0
+          repositories: sports-store-deployments
+          permission-contents: write
+
+      - name: Checkout Deployment Repository
+        uses: actions/checkout@v4
+        with:
+          repository: Deploy-On-Friday2-0/sports-store-deployments
+          ref: main
+          token: ${{ steps.gitops-token.outputs.token }}
+          path: sports-store-deployments
+
+      - name: Update Production Image Tag
+        uses: mikefarah/yq@v4.53.2
+        with:
+          cmd: yq -i '.image.tag = strenv(IMAGE_TAG)' 'sports-store-deployments/environments/production/images/payment-service.yaml'
+        env:
+          IMAGE_TAG: ${{ steps.get_tag.outputs.tag }}
+
+      - name: Commit and Push Image Tag
+        working-directory: sports-store-deployments
+        env:
+          GH_TOKEN: ${{ steps.gitops-token.outputs.token }}
+          APP_SLUG: ${{ steps.gitops-token.outputs.app-slug }}
+          IMAGE_FILE: environments/production/images/payment-service.yaml
+          IMAGE_TAG: ${{ steps.get_tag.outputs.tag }}
+        run: |
+          if git diff --quiet -- "$IMAGE_FILE"; then
+            echo "Production image tag is already $IMAGE_TAG; nothing to commit."
+            exit 0
+          fi
+          if [ "$APP_SLUG" != "sports-store-gitops-bot" ]; then
+            echo "Unexpected GitHub App slug: $APP_SLUG"
+            exit 1
+          fi
+          BOT_ID=$(gh api '/users/sports-store-gitops-bot%5Bbot%5D' --jq '.id')
+          git config user.name 'sports-store-gitops-bot[bot]'
+          git config user.email "${BOT_ID}+sports-store-gitops-bot[bot]@users.noreply.github.com"
+          git add -- "$IMAGE_FILE"
+          git commit -m "chore(production): update payment-service image to $IMAGE_TAG [skip ci]"
+          for attempt in 1 2 3; do
+            git pull --rebase origin main
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            echo "Push attempt $attempt failed because main advanced; retrying."
+          done
+          exit 1
