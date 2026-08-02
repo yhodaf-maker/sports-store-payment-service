@@ -13,6 +13,21 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  branch-name:
+    name: Branch name validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Validate branch name
+        env:
+          BRANCH_NAME: ${{ github.head_ref }}
+        run: |
+          if [[ ! "$BRANCH_NAME" =~ ^(feature|bugfix|hotfix)/[a-z0-9]+(-[a-z0-9]+)*$ ]]; then
+            printf 'Invalid branch name: %s\n' "$BRANCH_NAME"
+            printf 'Use feature/, bugfix/, or hotfix/ followed by a lowercase kebab-case slug.\n'
+            exit 1
+          fi
+
   quality:
     name: Python Quality and Tests
     runs-on: ubuntu-latest
