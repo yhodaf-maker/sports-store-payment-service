@@ -4,3 +4,4 @@ motor==3.7.1
 pydantic==2.13.4
 python-dotenv==1.2.2
 PyJWT==2.13.0
+prometheus-fastapi-instrumentator==8.1.0
