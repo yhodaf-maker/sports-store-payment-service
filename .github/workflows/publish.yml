@@ -35,6 +35,13 @@ jobs:
           TAG="${{ steps.get_version.outputs.version }}-$SHA7"
           echo "tag=$TAG" >> $GITHUB_OUTPUT
 
+      - name: Verify AWS role secret is present
+        run: |
+          if [ -z "${{ secrets.AWS_ROLE_ARN }}" ]; then
+            echo "::error::AWS_ROLE_ARN secret is empty or missing on this repository. Set it (repo or org secret) to the ECR push role ARN."
+            exit 1
+          fi
+
       - name: Configure AWS Credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
