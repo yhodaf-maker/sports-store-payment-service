@@ -58,7 +58,7 @@ jobs:
         id: gitops-token
         uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ secrets.GITOPS_APP_ID }}
+          client-id: ${{ vars.GITOPS_CLIENT_ID }}
           private-key: ${{ secrets.GITOPS_APP_PRIVATE_KEY }}
           owner: Deploy-On-Friday2-0
           repositories: sports-store-deployments

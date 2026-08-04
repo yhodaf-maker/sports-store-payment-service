@@ -56,7 +56,7 @@ def _assert_writeback_contract(content):
     commit_index = content.index("git commit -m")
 
     assert push_index < token_index < yq_index < commit_index
-    assert "app-id: ${{ secrets.GITOPS_APP_ID }}" in content
+    assert "client-id: ${{ vars.GITOPS_CLIENT_ID }}" in content
     assert "private-key: ${{ secrets.GITOPS_APP_PRIVATE_KEY }}" in content
     assert "repositories: sports-store-deployments" in content
     assert "permission-contents: write" in content
