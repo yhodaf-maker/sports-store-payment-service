@@ -60,7 +60,7 @@ def _assert_writeback_contract(content):
     assert "private-key: ${{ secrets.GITOPS_APP_PRIVATE_KEY }}" in content
     assert "repositories: sports-store-deployments" in content
     assert "permission-contents: write" in content
-    assert "repository: Deploy-On-Friday2-0/sports-store-deployments" in content
+    assert "repository: yhodaf-maker/sports-store-deployments" in content
     assert "ref: main" in content
     assert "token: ${{ steps.gitops-token.outputs.token }}" in content
     assert f".image.tag = strenv(IMAGE_TAG)' 'sports-store-deployments/{image_file}'" in content

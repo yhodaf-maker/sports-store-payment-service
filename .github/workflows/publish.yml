@@ -60,14 +60,14 @@ jobs:
         with:
           client-id: ${{ vars.GITOPS_CLIENT_ID }}
           private-key: ${{ secrets.GITOPS_APP_PRIVATE_KEY }}
-          owner: Deploy-On-Friday2-0
+          owner: yhodaf-maker
           repositories: sports-store-deployments
           permission-contents: write
 
       - name: Checkout Deployment Repository
         uses: actions/checkout@v4
         with:
-          repository: Deploy-On-Friday2-0/sports-store-deployments
+          repository: yhodaf-maker/sports-store-deployments
           ref: main
           token: ${{ steps.gitops-token.outputs.token }}
           path: sports-store-deployments
