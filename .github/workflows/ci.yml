@@ -127,3 +127,34 @@ jobs:
           exit-code: "1"
           vuln-type: os,library
           scanners: vuln
+
+  sast:
+    name: Semgrep SAST (report only)
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SEMGREP_IMAGE: semgrep/semgrep@sha256:65dcd4408adda7c183a6b4550cb1e9b19f7f627a6fbb7e0559bd466bedc44d7b
+      SEMGREP_VERSION: 1.172.0
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Verify pinned Semgrep version
+        run: |
+          actual_version="$(docker run --rm "$SEMGREP_IMAGE" semgrep --version)"
+          test "$actual_version" = "$SEMGREP_VERSION"
+
+      # Full report-only scan for the initial tuning phase. Findings are printed
+      # to the job log without failing the job. Scanner/configuration
+      # failures retain the nonzero exit code returned by docker run.
+      - name: Run Semgrep full scan (report only)
+        run: |
+          docker run --rm \
+            --mount "type=bind,source=${GITHUB_WORKSPACE},target=/src,readonly" \
+            --workdir /src \
+            "$SEMGREP_IMAGE" \
+            semgrep scan --config auto .

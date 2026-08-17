@@ -82,3 +82,31 @@ def test_failed_ci_path_cannot_consume_openrouter_quota():
     secret_pass = ORCHESTRATOR.index("secrets.OPENROUTER_API_KEY")
     assert success_gate < secret_pass
     assert "OPENROUTER_API_KEY" not in CI
+
+
+def test_semgrep_sast_is_pinned_report_only_and_least_privilege():
+    assert "sast:" in CI
+    assert "name: Semgrep SAST (report only)" in CI
+    assert (
+        "semgrep/semgrep@sha256:"
+        "65dcd4408adda7c183a6b4550cb1e9b19f7f627a6fbb7e0559bd466bedc44d7b"
+        in CI
+    )
+    assert "SEMGREP_VERSION: 1.172.0" in CI
+    assert "semgrep scan --config auto ." in CI
+    assert "persist-credentials: false" in CI
+
+    sast = CI.split("\n  sast:", maxsplit=1)[1]
+    assert "contents: read" in sast
+    assert "--error" not in sast
+    assert "continue-on-error" not in sast
+    assert "secrets." not in sast
+    for forbidden in (
+        "id-token: write",
+        "contents: write",
+        "pull-requests: write",
+        "security-events: write",
+    ):
+        assert forbidden not in sast
+
+    assert '"Semgrep SAST (report only)"' in ORCHESTRATOR

@@ -26,6 +26,6 @@ jobs:
       reviewed_commit_sha: ${{ github.event.workflow_run.pull_requests[0].head.sha }}
       workflow_run_id: ${{ github.event.workflow_run.id }}
       required_ci_jobs_json: >-
-        ["Branch name validation","Python Quality and Tests","Secret Scanning","Dockerfile Policy","Container Vulnerabilities"]
+        ["Branch name validation","Python Quality and Tests","Secret Scanning","Dockerfile Policy","Container Vulnerabilities","Semgrep SAST (report only)"]
     secrets:
       openrouter_api_key: ${{ secrets.OPENROUTER_API_KEY }}
