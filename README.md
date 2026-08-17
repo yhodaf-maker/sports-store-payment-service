@@ -18,6 +18,11 @@ cp .env.example .env
 uvicorn main:app --reload --port 8005
 ```
 
+Browser clients normally reach this service through the same-origin gateway.
+Set `ALLOWED_ORIGINS` only for direct cross-origin browser access. It accepts a
+comma-separated list of exact trusted origins. The default is empty; wildcards
+and malformed origins are rejected during application import.
+
 ## Tests
 
 ```bash

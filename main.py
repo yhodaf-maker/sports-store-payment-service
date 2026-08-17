@@ -1,10 +1,10 @@
 import logging
 
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator, metrics
 from pymongo.errors import PyMongoError
 
+from cors_config import add_cors_middleware
 from database import payments_collection
 from routes import payments
 
@@ -12,12 +12,7 @@ logger = logging.getLogger("payment-service")
 
 app = FastAPI(title="Sports Store — Payment Service")
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+add_cors_middleware(app)
 
 app.include_router(payments.router, prefix="/api")
 
