@@ -158,3 +158,41 @@ jobs:
             --workdir /src \
             "$SEMGREP_IMAGE" \
             semgrep scan --config auto .
+
+  sca:
+    name: Dependency SCA (report only)
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PIP_AUDIT_IMAGE: python:3.11.15-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3
+      PIP_AUDIT_VERSION: 2.10.1
+      SCA_MANIFESTS: requirements.txt requirements-dev.txt
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Audit Python dependencies
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/dependency-sca"
+          for manifest in $SCA_MANIFESTS; do
+            report="$RUNNER_TEMP/dependency-sca/${manifest//\//-}.json"
+            set +e
+            docker run --rm \
+              --mount "type=bind,source=${GITHUB_WORKSPACE},target=/src,readonly" \
+              --mount "type=bind,source=${RUNNER_TEMP}/dependency-sca,target=/reports" \
+              --workdir /src "$PIP_AUDIT_IMAGE" \
+              sh -c 'python -m pip install --disable-pip-version-check --no-cache-dir --quiet "pip-audit==$1" || exit 2; python -m pip_audit --requirement "$2" --format json --output "/reports/$3"' \
+              sh "$PIP_AUDIT_VERSION" "$manifest" "${manifest//\//-}.json"
+            audit_status=$?
+            set -e
+            python -c 'import json,sys; data=json.load(open(sys.argv[1], encoding="utf-8")); assert isinstance(data, dict) and isinstance(data.get("dependencies"), list), "invalid pip-audit report"; findings=[(d.get("name"), v.get("id")) for d in data["dependencies"] for v in d.get("vulns", [])]; print(f"{sys.argv[2]}: {len(findings)} known vulnerabilities"); [print(f"  {pkg}: {vuln}") for pkg, vuln in findings]' "$report" "$manifest"
+            case "$audit_status" in
+              0) ;;
+              1) echo "Vulnerabilities are report-only during the initial rollout." ;;
+              *) echo "pip-audit execution failed with exit code $audit_status" >&2; exit "$audit_status" ;;
+            esac
+          done
