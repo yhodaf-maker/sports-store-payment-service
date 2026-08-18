@@ -1,13 +1,11 @@
 name: Publish Production Image
 
 on:
-  push:
-    branches:
-      - main
+  # SAFETY: Production publishing is manual-only and remains operationally
+  # disabled until the later deployment-hardening phase. Do not dispatch.
+  workflow_dispatch:
 
-permissions:
-  id-token: write
-  contents: read
+permissions: {}
 
 concurrency:
   group: production-image-writeback
@@ -17,33 +15,46 @@ jobs:
   build-and-push:
     name: Build and Push to ECR
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
 
       - name: Read Version
         id: get_version
         run: |
-          VERSION=$(cat VERSION | tr -d '\r\n[:space:]')
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          VERSION="$(cat VERSION)"
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "VERSION must use strict numeric SemVer (for example 1.0.0)." >&2
+            exit 1
+          fi
+          printf 'version=%s\n' "$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Calculate Image Tag
         id: get_tag
         run: |
-          SHA7=$(echo "${{ github.sha }}" | cut -c1-7)
+          SHA7=$(printf '%s' "${{ github.sha }}" | cut -c1-7)
           TAG="${{ steps.get_version.outputs.version }}-$SHA7"
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          if [[ ! "$TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+-[0-9a-f]{7}$ ]]; then
+            echo "Refusing invalid image tag: $TAG" >&2
+            exit 1
+          fi
+          printf 'tag=%s\n' "$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Configure AWS Credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
         with:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: us-east-1
 
       - name: Log in to Amazon ECR
         id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
+        uses: aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64 # v2.1.6
 
       - name: Build, Tag, and Push Image to Amazon ECR
         env:
@@ -56,7 +67,7 @@ jobs:
 
       - name: Generate GitOps App Token
         id: gitops-token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.GITOPS_CLIENT_ID }}
           private-key: ${{ secrets.GITOPS_APP_PRIVATE_KEY }}
@@ -65,7 +76,7 @@ jobs:
           permission-contents: write
 
       - name: Checkout Deployment Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           repository: yhodaf-maker/sports-store-deployments
           ref: main
@@ -73,7 +84,7 @@ jobs:
           path: sports-store-deployments
 
       - name: Update Production Image Tag
-        uses: mikefarah/yq@v4.53.2
+        uses: mikefarah/yq@751d8ad57b84f1794661bc70c0afb92a22ad7b3c # v4.53.2
         with:
           cmd: yq -i '.image.tag = strenv(IMAGE_TAG)' 'sports-store-deployments/environments/production/images/payment-service.yaml'
         env:
@@ -108,3 +119,7 @@ jobs:
             echo "Push attempt $attempt failed because main advanced; retrying."
           done
           exit 1
+
+      - name: Remove persisted GitOps credentials
+        if: always()
+        run: git -C sports-store-deployments config --local --unset-all http.https://github.com/.extraheader 2>/dev/null || true

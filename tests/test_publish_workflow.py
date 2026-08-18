@@ -14,8 +14,9 @@ def test_workflow_trigger_and_permissions():
     with open(WORKFLOW_PATH, "r", encoding="utf-8") as f:
         content = f.read()
 
-    # Trigger branch check (push to main)
-    assert re.search(r'push:\s*\n\s*branches:\s*\n\s*-\s*main', content) is not None, "Workflow must trigger on pushes to main branch"
+    assert re.search(r"^\s*workflow_dispatch:\s*$", content, re.MULTILINE)
+    for forbidden_trigger in ("push", "pull_request", "workflow_run", "schedule"):
+        assert re.search(rf"^\s{{2}}{forbidden_trigger}:\s*$", content, re.MULTILINE) is None
 
     # OIDC Permissions check (id-token: write, contents: read)
     assert re.search(r'id-token:\s*write', content) is not None, "Workflow must request id-token write permissions for OIDC"
@@ -51,8 +52,8 @@ def test_no_deployment_commands_used():
 def _assert_writeback_contract(content):
     image_file = "environments/production/images/payment-service.yaml"
     push_index = content.index("docker push")
-    token_index = content.index("actions/create-github-app-token@v3")
-    yq_index = content.index("mikefarah/yq@v4.53.2")
+    token_index = content.index("actions/create-github-app-token@")
+    yq_index = content.index("mikefarah/yq@")
     commit_index = content.index("git commit -m")
 
     assert push_index < token_index < yq_index < commit_index
@@ -91,7 +92,7 @@ def test_gitops_image_tag_writeback_contract():
 @pytest.mark.parametrize(
     "required_fragment",
     [
-        "actions/create-github-app-token@v3",
+        "actions/create-github-app-token@",
         ".image.tag = strenv(IMAGE_TAG)",
         'git diff --quiet -- "$IMAGE_FILE"',
         "[skip ci]",
